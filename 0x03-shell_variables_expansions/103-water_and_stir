@@ -1,0 +1,2 @@
+#!/bin/bash
+from_dec() { d=$1 b=$2 l=${#b} o= if [ $d -eq 0 ] then echo "${b:0:1}" return fi while [ $d -gt 0 ] do m=$((d%l)) d=$((d/l)) o="${b:m:1}$o" done echo $o } to_dec() { n=$1 b=$2 r=0 i=0 while [ $i -lt ${#n} ] do c=${n:i:1} p=$(expr index "$b" "$c") r=$((r*${#b}+p-1)) i=$((i+1)) done echo $r } from_dec $(( $(to_dec "$WATER" water) + $(to_dec "$STIR" stir) )) bestchol
