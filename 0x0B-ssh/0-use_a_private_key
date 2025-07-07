@@ -2,4 +2,5 @@
 # A script to connect to my server using the private key
 # ~/.ssh/school and server ubuntu
 
-ssh -i ~/.ssh/school ubuntu@100.26.152.178
+#!/bin/bash
+ssh c95d76c339d6@c95d76c339d6.df681b92.alx-cod.online
