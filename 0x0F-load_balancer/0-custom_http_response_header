@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2154
+
+apt-get update -y
+apt-get install -y nginx
+
+cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup
+
+cat > /etc/nginx/sites-available/default << 'EOF'
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    root /var/www/html;
+    index index.html index.htm index.nginx-debian.html;
+
+    server_name _;
+
+    add_header X-Served-By $hostname;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /var/www/html;
+    }
+}
+EOF
+
+cat > /var/www/html/index.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Server</title>
+</head>
+<body>
+    <h1>Hello World!</h1>
+    <p>This is a web server configured with custom headers.</p>
+</body>
+</html>
+EOF
+
+nginx -t
+
+systemctl enable nginx
+systemctl start nginx
+systemctl restart nginx
+
+ufw allow 'Nginx Full' 2>/dev/null || true
