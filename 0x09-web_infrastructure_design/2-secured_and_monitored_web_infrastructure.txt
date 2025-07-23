@@ -1,0 +1,322 @@
+# Secured and Monitored Web Infrastructure Design
+
+## Infrastructure Overview
+
+```
+┌─────────────────┐    ┌─────────────────────────────────────────┐
+│   User Browser  │    │              Internet                   │
+│                 │◄──►│                                         │
+└─────────────────┘    └─────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        DNS Server                              │
+│  www.foobar.com ──► Load Balancer IP                          │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Firewall 1 (External)                       │
+│                    - Allow HTTPS (443)                         │
+│                    - Allow HTTP (80) → HTTPS redirect          │
+│                    - Block all other ports                     │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Load Balancer (HAProxy)                     │
+│                    IP: 8.8.8.8                                 │
+│                    Port: 443 (HTTPS)                           │
+│                    SSL Termination                              │
+│                    SSL Certificate: *.foobar.com               │
+│                    ┌─────────────────────────────────────────┐ │
+│                    │        Monitoring Client 1             │ │
+│                    │        (Data Collector)                │ │
+│                    └─────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                    ┌───────────┼───────────┐
+                    ▼           ▼           ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│   Firewall 2    │ │   Firewall 3    │ │   Firewall 4    │
+│   - Allow 80    │ │   - Allow 80    │ │   - Allow 80    │
+│   - Allow 3000  │ │   - Allow 3000  │ │   - Allow 3000  │
+│   - Allow 3306  │ │   - Allow 3306  │ │   - Allow 3306  │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│   Web Server 1  │ │   Web Server 2  │ │   Web Server 3  │
+│   IP: 8.8.8.9   │ │   IP: 8.8.8.10  │ │   IP: 8.8.8.11  │
+│   Port: 80      │ │   Port: 80      │ │   Port: 80      │
+│   Nginx         │ │   Nginx         │ │   Nginx         │
+│   ┌───────────┐ │ │   ┌───────────┐ │ │   ┌───────────┐ │
+│   │Monitoring │ │ │   │Monitoring │ │ │   │Monitoring │ │
+│   │Client 2   │ │ │   │Client 3   │ │ │   │Client 4   │ │
+│   └───────────┘ │ │   └───────────┘ │ │   └───────────┘ │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+         │                    │                    │
+         └───────────┼────────┴───────────┼────────┘
+                     ▼                    ▼
+         ┌─────────────────┐  ┌─────────────────┐
+         │ Application     │  │ Application     │
+         │ Server 1        │  │ Server 2        │
+         │ Port: 3000      │  │ Port: 3000      │
+         └─────────────────┘  └─────────────────┘
+                     │                    │
+                     └──────────┼─────────┘
+                                ▼
+         ┌─────────────────────────────────────────────────┐
+         │              Database Cluster                   │
+         │  ┌─────────────────┐  ┌─────────────────────┐   │
+         │  │   Primary DB    │  │     Replica DB      │   │
+         │  │   (Master)      │◄─►│     (Slave)        │   │
+         │  │   IP: 8.8.8.12  │  │   IP: 8.8.8.13     │   │
+         │  │   Port: 3306    │  │   Port: 3306        │   │
+         │  │   MySQL         │  │   MySQL             │   │
+         │  └─────────────────┘  └─────────────────────┘   │
+         └─────────────────────────────────────────────────┘
+```
+
+## Infrastructure Components
+
+### 1. Firewalls (3x)
+- **Firewall 1 (External)**: Protects load balancer from external threats
+- **Firewall 2**: Protects Web Server 1 and its services
+- **Firewall 3**: Protects Web Server 2 and its services
+- **Firewall 4**: Protects Web Server 3 and its services
+
+### 2. SSL Certificate
+- **Certificate**: *.foobar.com (wildcard certificate)
+- **Provider**: Let's Encrypt or commercial CA
+- **Termination**: At load balancer level
+- **Protocol**: HTTPS (port 443)
+
+### 3. Monitoring Clients (4x)
+- **Client 1**: Load balancer monitoring
+- **Client 2**: Web Server 1 monitoring
+- **Client 3**: Web Server 2 monitoring
+- **Client 4**: Web Server 3 monitoring
+
+### 4. Load Balancer (HAProxy)
+- **IP**: 8.8.8.8
+- **Port**: 443 (HTTPS)
+- **SSL Termination**: Yes
+- **Algorithm**: Round Robin
+
+### 5. Web Servers (3x Nginx)
+- **Server 1**: IP 8.8.8.9, Port 80
+- **Server 2**: IP 8.8.8.10, Port 80
+- **Server 3**: IP 8.8.8.11, Port 80
+
+### 6. Application Servers (2x)
+- **Server 1**: Port 3000
+- **Server 2**: Port 3000
+
+### 7. Database Cluster (MySQL)
+- **Primary**: IP 8.8.8.12, Port 3306
+- **Replica**: IP 8.8.8.13, Port 3306
+
+## Why Additional Elements Are Added
+
+### 1. Firewalls
+- **Purpose**: Network-level security protection
+- **Benefits**: 
+  - Control incoming/outgoing traffic
+  - Block malicious requests
+  - Prevent unauthorized access
+  - Protect against DDoS attacks
+
+### 2. SSL Certificate
+- **Purpose**: Encrypt data in transit
+- **Benefits**:
+  - Protect sensitive data
+  - Build user trust
+  - Meet compliance requirements
+  - Prevent man-in-the-middle attacks
+
+### 3. Monitoring Clients
+- **Purpose**: Collect system and application metrics
+- **Benefits**:
+  - Real-time visibility into system health
+  - Proactive issue detection
+  - Performance optimization
+  - Capacity planning
+
+## Firewall Functions
+
+### What Firewalls Are For:
+1. **Access Control**: Allow/deny traffic based on rules
+2. **Port Filtering**: Block unnecessary ports
+3. **IP Filtering**: Block malicious IP addresses
+4. **Protocol Filtering**: Allow only specific protocols
+5. **Stateful Inspection**: Track connection states
+6. **DDoS Protection**: Mitigate distributed denial-of-service attacks
+
+### Firewall Rules Example:
+```
+External Firewall:
+- Allow: HTTPS (443), HTTP (80)
+- Deny: All other ports
+
+Internal Firewalls:
+- Allow: HTTP (80), Application (3000), Database (3306)
+- Deny: All other ports
+```
+
+## HTTPS Traffic Benefits
+
+### Why Traffic is Served Over HTTPS:
+1. **Data Encryption**: Protects data from interception
+2. **Authentication**: Verifies server identity
+3. **Integrity**: Ensures data hasn't been tampered with
+4. **SEO Benefits**: Google favors HTTPS sites
+5. **User Trust**: Browser shows security indicators
+6. **Compliance**: Required for handling sensitive data
+
+### SSL/TLS Handshake Process:
+1. Client initiates HTTPS connection
+2. Server presents SSL certificate
+3. Client verifies certificate
+4. Symmetric encryption key is established
+5. Encrypted communication begins
+
+## Monitoring Implementation
+
+### What Monitoring is Used For:
+1. **Performance Monitoring**: Track response times, throughput
+2. **Availability Monitoring**: Ensure services are running
+3. **Resource Monitoring**: CPU, memory, disk usage
+4. **Security Monitoring**: Detect suspicious activities
+5. **Business Metrics**: User behavior, conversion rates
+
+### How Monitoring Tool Collects Data:
+1. **Agent-based Collection**: Monitoring clients installed on servers
+2. **Log Collection**: Gather application and system logs
+3. **Metrics Collection**: CPU, memory, disk, network metrics
+4. **Health Checks**: Regular ping/HTTP checks
+5. **Real-time Streaming**: Continuous data flow to monitoring service
+
+### Monitoring Data Types:
+- **System Metrics**: CPU, memory, disk, network
+- **Application Metrics**: Response times, error rates
+- **Business Metrics**: User sessions, transactions
+- **Security Events**: Failed logins, suspicious activities
+
+## Web Server QPS Monitoring
+
+### How to Monitor Web Server QPS (Queries Per Second):
+
+1. **Nginx Access Logs**:
+   ```bash
+   # Count requests per second
+   tail -f /var/log/nginx/access.log | awk '{print $4}' | uniq -c
+   ```
+
+2. **Monitoring Client Configuration**:
+   ```yaml
+   metrics:
+     - name: "nginx_requests_per_second"
+       type: "counter"
+       source: "nginx_access_log"
+       interval: "1s"
+   ```
+
+3. **HAProxy Statistics**:
+   - Enable HAProxy stats page
+   - Monitor current sessions
+   - Track request rates per backend
+
+4. **Application-level Monitoring**:
+   - Track API endpoints
+   - Monitor database queries
+   - Measure response times
+
+## Infrastructure Issues
+
+### 1. SSL Termination at Load Balancer
+**Problem**: SSL is terminated at load balancer, traffic to backend servers is unencrypted
+**Issues**:
+- **Security Risk**: Data travels unencrypted between load balancer and servers
+- **Compliance**: May violate security requirements
+- **Trust**: Backend servers can't verify client identity
+- **Vulnerability**: Man-in-the-middle attacks possible on internal network
+
+**Solutions**:
+- Implement end-to-end encryption
+- Use SSL passthrough
+- Deploy internal certificates
+
+### 2. Single MySQL Write Server
+**Problem**: Only one server can accept write operations
+**Issues**:
+- **SPOF**: If primary fails, writes stop completely
+- **Scalability**: Write performance limited to single server
+- **Maintenance**: Database maintenance causes downtime
+- **Recovery**: Manual failover process required
+
+**Solutions**:
+- Implement automatic failover
+- Use database clustering (Galera, Group Replication)
+- Deploy read replicas for write distribution
+
+### 3. Servers with Same Components
+**Problem**: Each server runs database, web server, and application server
+**Issues**:
+- **Resource Contention**: Components compete for CPU/memory
+- **Security**: Larger attack surface on each server
+- **Maintenance**: Updates affect multiple services
+- **Scaling**: Can't scale components independently
+- **Complexity**: Harder to troubleshoot issues
+
+**Solutions**:
+- Separate concerns (dedicated database servers)
+- Use microservices architecture
+- Implement containerization (Docker)
+- Deploy service mesh
+
+## Recommended Improvements
+
+### Security Enhancements
+- Implement end-to-end encryption
+- Deploy Web Application Firewall (WAF)
+- Enable intrusion detection systems
+- Implement network segmentation
+
+### Monitoring Enhancements
+- Deploy centralized logging (ELK Stack)
+- Implement automated alerting
+- Use APM tools for application monitoring
+- Deploy distributed tracing
+
+### High Availability
+- Implement automatic failover
+- Deploy multiple database primaries
+- Use container orchestration (Kubernetes)
+- Implement blue-green deployments
+
+## URLs
+
+### Primary URLs:
+- **`https://www.foobar.com`** - Main website with SSL encryption
+- **`http://www.foobar.com`** - Redirects to HTTPS
+
+### Load Balancer:
+- **`https://8.8.8.8`** - Secure access to load balancer
+- **`http://8.8.8.8`** - Redirects to HTTPS
+
+### Web Servers (Internal):
+- **`http://8.8.8.9`** - Internal access to Web Server 1
+- **`http://8.8.8.10`** - Internal access to Web Server 2
+- **`http://8.8.8.11`** - Internal access to Web Server 3
+
+### DNS Configuration:
+- **Domain:** `foobar.com`
+- **Subdomain:** `www.foobar.com`
+- **DNS Record:** CNAME record pointing `www.foobar.com` → `8.8.8.8` (load balancer)
+
+### Service Ports:
+- **Load Balancer:** Port 443 (HTTPS), Port 80 (HTTP redirect)
+- **Web Servers:** Port 80 (HTTP - internal)
+- **Application Servers:** Port 3000 (internal)
+- **Database:** Port 3306 (internal) 
