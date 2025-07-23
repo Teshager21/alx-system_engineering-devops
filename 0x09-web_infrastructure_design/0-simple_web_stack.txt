@@ -1,0 +1,155 @@
+# Simple Web Stack Infrastructure Design
+
+## Infrastructure Overview
+
+```
+┌─────────────────┐    ┌─────────────────────────────────────────┐
+│   User Browser  │    │              Internet                   │
+│                 │◄──►│                                         │
+└─────────────────┘    └─────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        DNS Server                              │
+│  www.foobar.com ──► 8.8.8.8                                  │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Single Server (8.8.8.8)                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │   Nginx     │  │ Application │  │       MySQL             │ │
+│  │ Web Server  │◄─►│   Server    │◄─►│      Database          │ │
+│  │  Port 80    │  │  Port 3000  │  │      Port 3306          │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
+│           │               │                    │               │
+│           └───────────────┼────────────────────┘               │
+│                           │                                    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Application Files                          │   │
+│  │              (Code Base)                                │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## User Journey
+
+1. **User wants to access website**: User types `www.foobar.com` in browser
+2. **DNS Resolution**: Browser queries DNS server for `www.foobar.com`
+3. **IP Resolution**: DNS returns `8.8.8.8` (server IP address)
+4. **HTTP Request**: Browser sends HTTP request to `8.8.8.8:80`
+5. **Web Server**: Nginx receives request on port 80
+6. **Application Server**: Nginx forwards request to application server (port 3000)
+7. **Database Query**: Application server queries MySQL database (port 3306)
+8. **Response**: Data flows back through the chain to user's browser
+
+## Infrastructure Components
+
+### 1. Server
+- **Definition**: A computer or system that provides resources, data, services, or programs to other computers (clients) over a network
+- **Role**: Hosts all web infrastructure components (web server, application server, database)
+- **Specifications**: Single server with IP address 8.8.8.8
+
+### 2. Domain Name (foobar.com)
+- **Definition**: Human-readable address that maps to an IP address
+- **Role**: Provides user-friendly way to access the website
+- **DNS Record Type**: `www` is a **CNAME record** that points to `foobar.com`
+- **Configuration**: `www.foobar.com` → `8.8.8.8`
+
+### 3. Web Server (Nginx)
+- **Definition**: Software that handles HTTP requests and serves web content
+- **Role**: 
+  - Receives incoming HTTP requests
+  - Serves static files (HTML, CSS, JS, images)
+  - Acts as reverse proxy to application server
+  - Handles SSL/TLS termination
+- **Port**: 80 (HTTP) / 443 (HTTPS)
+
+### 4. Application Server
+- **Definition**: Software framework that runs application code and handles business logic
+- **Role**:
+  - Executes application code
+  - Processes dynamic content
+  - Handles user sessions
+  - Manages application state
+- **Port**: 3000 (example)
+
+### 5. Application Files (Code Base)
+- **Definition**: Source code and assets that make up the website
+- **Role**:
+  - Contains business logic
+  - Defines website functionality
+  - Includes templates and assets
+- **Location**: Stored on the server filesystem
+
+### 6. Database (MySQL)
+- **Definition**: Relational database management system
+- **Role**:
+  - Stores and manages data
+  - Handles data queries
+  - Ensures data integrity
+  - Manages user accounts, content, etc.
+- **Port**: 3306
+
+### 7. Communication Protocol
+- **Protocol**: HTTP/HTTPS (Hypertext Transfer Protocol)
+- **Role**: Standard protocol for communication between web browsers and servers
+- **Process**: TCP/IP connection established between user's computer and server
+
+## Infrastructure Issues
+
+### 1. Single Point of Failure (SPOF)
+- **Problem**: If the single server fails, the entire website goes down
+- **Impact**: Complete service outage
+- **Solution**: Multiple servers with load balancing
+
+### 2. Downtime During Maintenance
+- **Problem**: Server restarts or code deployments cause website downtime
+- **Impact**: Users cannot access the website during maintenance
+- **Solution**: Blue-green deployment, rolling updates, or maintenance windows
+
+### 3. Scalability Issues
+- **Problem**: Single server cannot handle high traffic loads
+- **Impact**: Slow response times or service unavailability during traffic spikes
+- **Solution**: Horizontal scaling with multiple servers and load balancers
+
+## Additional Considerations
+
+### Security
+- Firewall configuration
+- SSL/TLS certificates
+- Database security
+- Application security
+
+### Monitoring
+- Server health monitoring
+- Application performance monitoring
+- Database monitoring
+- Error logging and alerting
+
+### Backup
+- Database backups
+- Application code backups
+- Configuration backups
+- Disaster recovery plan
+
+## URLs
+
+### Primary URLs:
+- **`http://www.foobar.com`** - Main website accessible to users
+- **`https://www.foobar.com`** - Secure version (if SSL/TLS is configured)
+- **`https://drive.google.com/file/d/1KDLdLPbnhaDT5q5QSjLXLWsKg7YeUMDI/view?usp=sharing** - Status page accessible to users
+
+### Direct Server Access:
+- **`http://8.8.8.8`** - Direct access to server via IP address
+- **`https://8.8.8.8`** - Secure direct access (if SSL/TLS is configured)
+
+### DNS Configuration:
+- **Domain:** `foobar.com`
+- **Subdomain:** `www.foobar.com`
+- **DNS Record:** CNAME record pointing `www.foobar.com` → `8.8.8.8`
+
+### Service Ports:
+- **Web Server (Nginx):** Port 80 (HTTP) / Port 443 (HTTPS)
+- **Application Server:** Port 3000 (internal)
+- **Database (MySQL):** Port 3306 (internal) 
