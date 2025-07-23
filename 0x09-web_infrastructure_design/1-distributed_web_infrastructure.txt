@@ -1,0 +1,213 @@
+# Distributed Web Infrastructure Design
+
+## Infrastructure Overview
+
+```
+┌─────────────────┐    ┌─────────────────────────────────────────┐
+│   User Browser  │    │              Internet                   │
+│                 │◄──►│                                         │
+└─────────────────┘    └─────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        DNS Server                              │
+│  www.foobar.com ──► Load Balancer IP                          │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Load Balancer (HAProxy)                     │
+│                    IP: 8.8.8.8                                 │
+│                    Port: 80/443                                │
+│                    Algorithm: Round Robin                      │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                    ┌───────────┼───────────┐
+                    ▼           ▼           ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│   Web Server 1  │ │   Web Server 2  │ │   Web Server 3  │
+│   IP: 8.8.8.9   │ │   IP: 8.8.8.10  │ │   IP: 8.8.8.11  │
+│   Port: 80      │ │   Port: 80      │ │   Port: 80      │
+│   Nginx         │ │   Nginx         │ │   Nginx         │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+         │                    │                    │
+         └───────────┼────────┴───────────┼────────┘
+                     ▼                    ▼
+         ┌─────────────────┐  ┌─────────────────┐
+         │ Application     │  │ Application     │
+         │ Server 1        │  │ Server 2        │
+         │ Port: 3000      │  │ Port: 3000      │
+         └─────────────────┘  └─────────────────┘
+                     │                    │
+                     └──────────┼─────────┘
+                                ▼
+         ┌─────────────────────────────────────────────────┐
+         │              Database Cluster                   │
+         │  ┌─────────────────┐  ┌─────────────────────┐   │
+         │  │   Primary DB    │  │     Replica DB      │   │
+         │  │   (Master)      │◄─►│     (Slave)        │   │
+         │  │   IP: 8.8.8.12  │  │   IP: 8.8.8.13     │   │
+         │  │   Port: 3306    │  │   Port: 3306        │   │
+         │  │   MySQL         │  │   MySQL             │   │
+         │  └─────────────────┘  └─────────────────────┘   │
+         └─────────────────────────────────────────────────┘
+```
+
+## Infrastructure Components
+
+### 1. Load Balancer (HAProxy)
+- **IP Address**: 8.8.8.8
+- **Ports**: 80 (HTTP), 443 (HTTPS)
+- **Distribution Algorithm**: Round Robin
+- **Role**: Distributes incoming traffic across multiple web servers
+
+### 2. Web Servers (3x Nginx)
+- **Server 1**: IP 8.8.8.9, Port 80
+- **Server 2**: IP 8.8.8.10, Port 80  
+- **Server 3**: IP 8.8.8.11, Port 80
+- **Role**: Handle HTTP requests, serve static content, reverse proxy to application servers
+
+### 3. Application Servers (2x)
+- **Server 1**: Port 3000
+- **Server 2**: Port 3000
+- **Role**: Execute application code, handle business logic, process dynamic content
+
+### 4. Database Cluster (MySQL Primary-Replica)
+- **Primary DB**: IP 8.8.8.12, Port 3306 (Master)
+- **Replica DB**: IP 8.8.8.13, Port 3306 (Slave)
+- **Role**: Store and manage data with replication for redundancy
+
+### 5. Application Files
+- **Location**: Distributed across web servers
+- **Role**: Source code and assets for the website
+
+## Why Additional Elements Are Added
+
+### 1. Multiple Web Servers
+- **Purpose**: Eliminate single point of failure
+- **Benefit**: If one server fails, others continue serving traffic
+- **Scalability**: Handle more concurrent users
+
+### 2. Load Balancer
+- **Purpose**: Distribute traffic evenly across servers
+- **Benefit**: Prevent any single server from being overwhelmed
+- **High Availability**: Route traffic away from failed servers
+
+### 3. Multiple Application Servers
+- **Purpose**: Handle application-level processing
+- **Benefit**: Distribute computational load
+- **Fault Tolerance**: Application continues if one server fails
+
+### 4. Database Cluster
+- **Purpose**: Data redundancy and read scaling
+- **Benefit**: Data protection and improved read performance
+- **Disaster Recovery**: Backup database for failover
+
+## Load Balancer Configuration
+
+### Distribution Algorithm: Round Robin
+- **How it works**: Requests are distributed sequentially across servers
+- **Example**: Request 1 → Server 1, Request 2 → Server 2, Request 3 → Server 3, Request 4 → Server 1
+- **Advantages**: Simple, predictable, evenly distributes load
+- **Disadvantages**: Doesn't consider server capacity or current load
+
+### Active-Active vs Active-Passive Setup
+
+#### Active-Active Setup (Current Design)
+- **Configuration**: All servers are actively serving traffic
+- **Load Balancer**: Distributes traffic across all active servers
+- **Benefits**: Maximum resource utilization, better performance
+- **Use Case**: High-traffic websites requiring maximum availability
+
+#### Active-Passive Setup
+- **Configuration**: One server active, others standby
+- **Load Balancer**: Routes traffic only to active server
+- **Benefits**: Simpler configuration, guaranteed failover
+- **Use Case**: Critical systems where consistency is more important than performance
+
+## Database Primary-Replica Cluster
+
+### How It Works
+1. **Primary (Master)**: Handles all write operations (INSERT, UPDATE, DELETE)
+2. **Replica (Slave)**: Receives copies of all changes from Primary
+3. **Replication**: Changes are automatically synchronized from Primary to Replica
+4. **Failover**: If Primary fails, Replica can be promoted to Primary
+
+### Primary vs Replica Differences
+
+#### Primary Node (Master)
+- **Role**: Handles all write operations
+- **Application Connection**: Applications connect to Primary for writes
+- **Data Consistency**: Always has the most up-to-date data
+- **Performance**: Optimized for write operations
+
+#### Replica Node (Slave)
+- **Role**: Handles read operations only
+- **Application Connection**: Applications can connect for read operations
+- **Data Consistency**: Slightly delayed due to replication lag
+- **Performance**: Optimized for read operations, reduces load on Primary
+
+## Infrastructure Issues
+
+### 1. Single Points of Failure (SPOF)
+- **Load Balancer**: If HAProxy fails, entire site becomes unavailable
+- **Database Primary**: If Primary DB fails, write operations stop
+- **Network**: Single network connection to load balancer
+
+### 2. Security Issues
+- **No Firewall**: No network-level security protection
+- **No HTTPS**: All traffic is unencrypted (HTTP only)
+- **No SSL/TLS**: No secure communication between components
+- **Vulnerabilities**: Exposed to man-in-the-middle attacks, data interception
+
+### 3. No Monitoring
+- **No Health Checks**: Cannot detect server failures automatically
+- **No Performance Monitoring**: Cannot identify performance bottlenecks
+- **No Alerting**: No notifications when issues occur
+- **No Logging**: Limited visibility into system behavior
+
+## Recommended Improvements
+
+### Security Enhancements
+- Implement firewalls on all servers
+- Configure SSL/TLS certificates
+- Enable HTTPS for all communications
+- Implement network segmentation
+
+### Monitoring Solutions
+- Deploy monitoring tools (Prometheus, Grafana)
+- Set up health checks for all components
+- Implement log aggregation (ELK Stack)
+- Configure alerting systems
+
+### High Availability
+- Deploy redundant load balancers
+- Implement database failover automation
+- Use multiple database replicas
+- Deploy across multiple data centers
+
+## URLs
+
+### Primary URLs:
+- **`http://www.foobar.com`** - Main website accessible to users
+- **`https://www.foobar.com`** - Secure version (if SSL/TLS is configured)
+
+### Load Balancer:
+- **`http://8.8.8.8`** - Direct access to load balancer
+- **`https://8.8.8.8`** - Secure access to load balancer
+
+### Web Servers:
+- **`http://8.8.8.9`** - Direct access to Web Server 1
+- **`http://8.8.8.10`** - Direct access to Web Server 2
+- **`http://8.8.8.11`** - Direct access to Web Server 3
+
+### DNS Configuration:
+- **Domain:** `foobar.com`
+- **Subdomain:** `www.foobar.com`
+- **DNS Record:** CNAME record pointing `www.foobar.com` → `8.8.8.8` (load balancer)
+
+### Service Ports:
+- **Load Balancer:** Port 80 (HTTP) / Port 443 (HTTPS)
+- **Web Servers:** Port 80 (HTTP)
+- **Application Servers:** Port 3000 (internal)
+- **Database:** Port 3306 (internal) 
